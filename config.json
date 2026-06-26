@@ -1,0 +1,44 @@
+{
+  "gma2": {
+    "executable": "C:\\Program Files\\MA Lighting Technologies\\grandMA2 onPC\\grandMA2 onPC.exe",
+    "showDirectory": "C:\\ProgramData\\MALighting\\grandMA2\\shared\\shows",
+    "telnetHost": "127.0.0.1",
+    "telnetPort": 30000,
+    "telnetUser": "Administrator",
+    "telnetPassword": "",
+    "startupTimeoutMs": 30000,
+    "showLoadWaitMs": 12000,
+    "macroWaitMs": 5000,
+    "shutdownWaitMs": 3000,
+    "postConnectWaitMs": 0,
+    "commandDelayMs": 350,
+    "loginCommand": "Login \"{user}\" \"{password}\"",
+    "loadShowCommand": "LoadShow \"{show}\" /nosave /noconfirm",
+    "macroCommand": "Macro \"{macro}\"",
+    "shutdownVerifyTimeoutMs": 12000,
+    "postShutdownNetworkQuietMs": 2000,
+    "verifyTelnetClosedBeforeReady": true,
+    "rejectIfTelnetAlreadyOpen": true,
+    "forceKillAllMatchingProcessesOnClose": true,
+    "processImageName": "grandMA2 onPC.exe"
+  },
+  "service": {
+    "host": "127.0.0.1",
+    "port": 3737,
+    "autoReturnToIdleMs": 0
+  },
+  "shows": [
+    {
+      "name": "Hamlet",
+      "file": "Showfile_Hamlet.show",
+      "loadShowName": "Showfile_Hamlet",
+      "macro": "VK Einrichtung (Hamlet)"
+    },
+    {
+      "name": "Faust",
+      "file": "Showfile_Faust.show",
+      "loadShowName": "Showfile_Faust",
+      "macro": "VK Einrichtung (Faust)"
+    }
+  ]
+}

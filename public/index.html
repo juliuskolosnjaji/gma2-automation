@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>gMA2 Node Setup</title>
+  <link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">grandMA2 onPC Automation</div>
+        <h1>Show Setup</h1>
+      </div>
+      <div class="status-pill" id="connectionStatus">Verbinde…</div>
+    </header>
+
+    <section class="panel" id="idlePanel">
+      <div class="panel-head">
+        <h2>Show auswählen</h2>
+        <button class="secondary" id="reloadButton" type="button">Config neu laden</button>
+      </div>
+      <div class="show-grid" id="showGrid"></div>
+    </section>
+
+    <section class="panel hidden" id="progressPanel">
+      <h2 id="progressTitle">Setup läuft…</h2>
+      <p class="large-message" id="progressMessage">Bitte warten.</p>
+
+      <ol class="steps" id="steps">
+        <li data-state="LAUNCHING">gMA2 onPC starten</li>
+        <li data-state="WAITING_FOR_TELNET">Auf Telnet warten</li>
+        <li data-state="LOGGING_IN">In gMA2 einloggen</li>
+        <li data-state="LOADING_SHOW">Showfile laden</li>
+        <li data-state="RUNNING_MACRO">Node-Macro ausführen</li>
+        <li data-state="CLOSING">gMA2 onPC schließen + prüfen</li>
+        <li data-state="READY">gMA2 frei / grandMA3 starten</li>
+      </ol>
+
+      <section class="event-log">
+        <h3>Ablauf</h3>
+        <div class="event-log-list" id="eventLog"></div>
+      </section>
+
+      <div class="actions">
+        <button class="primary hidden" id="confirmButton" type="button">grandMA3 gestartet / zurück zur Auswahl</button>
+        <button class="danger hidden" id="resetButton" type="button">Fehler quittieren</button>
+      </div>
+    </section>
+
+    <dialog id="confirmDialog">
+      <form method="dialog" class="dialog-card">
+        <h2 id="confirmTitle">Show starten?</h2>
+        <p id="confirmText">Soll das Node-Setup gestartet werden?</p>
+        <div class="dialog-actions">
+          <button class="secondary" value="cancel" type="submit">Abbrechen</button>
+          <button class="primary" id="startConfirmedButton" value="default" type="button">Setup starten</button>
+        </div>
+      </form>
+    </dialog>
+
+    <footer>
+      <span id="lastUpdate">—</span>
+    </footer>
+  </main>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>

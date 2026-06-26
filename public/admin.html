@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>gMA2 Admin</title>
+  <link rel="stylesheet" href="/admin/style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">grandMA2 onPC Automation</div>
+        <h1>Show-Verwaltung</h1>
+      </div>
+      <div class="status-pill" id="connectionStatus">Verbinde…</div>
+    </header>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Shows und Macros</h2>
+          <p class="panel-copy">Hier werden nur die Einträge aus `shows[]` bearbeitet. Änderungen gelten erst für den nächsten Lauf.</p>
+        </div>
+        <div class="toolbar">
+          <button class="secondary" id="reloadButton" type="button">Neu laden</button>
+          <button class="primary" id="saveButton" type="button">Speichern</button>
+        </div>
+      </div>
+
+      <div class="admin-note" id="runWarning">Wenn gerade ein Setup läuft, ist Speichern gesperrt.</div>
+      <div class="editor-list" id="showList"></div>
+
+      <div class="actions">
+        <button class="secondary" id="addButton" type="button">Show hinzufügen</button>
+      </div>
+    </section>
+
+    <footer>
+      <span id="lastUpdate">—</span>
+    </footer>
+  </main>
+
+  <template id="showTemplate">
+    <article class="show-editor">
+      <div class="show-editor-head">
+        <h3 class="show-editor-title">Neue Show</h3>
+        <button class="danger compact delete-button" type="button">Löschen</button>
+      </div>
+
+      <label>
+        <span>Button-Name</span>
+        <input class="field-name" type="text" placeholder="Hamlet">
+      </label>
+
+      <label>
+        <span>gMA2 LoadShow Name</span>
+        <input class="field-loadshow" type="text" placeholder="Showfile_Hamlet">
+      </label>
+
+      <label>
+        <span>Optionale .show-Datei</span>
+        <input class="field-file" type="text" placeholder="Showfile_Hamlet.show">
+      </label>
+
+      <label>
+        <span>Macro-Name</span>
+        <input class="field-macro" type="text" placeholder="VK Einrichtung (Hamlet)">
+      </label>
+    </article>
+  </template>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

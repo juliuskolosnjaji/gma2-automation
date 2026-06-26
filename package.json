@@ -1,0 +1,16 @@
+{
+  "name": "gma2-automation",
+  "version": "0.1.0",
+  "description": "Touchscreen-triggered grandMA2 onPC node setup automation for handoff to grandMA3.",
+  "main": "service.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node service.js",
+    "test-console": "node test-console.js",
+    "check": "node --check service.js && node --check test-console.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

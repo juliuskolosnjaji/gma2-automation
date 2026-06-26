@@ -7,6 +7,7 @@ const els = {
   reloadButton: document.getElementById('reloadButton'),
   saveButton: document.getElementById('saveButton'),
   addButton: document.getElementById('addButton'),
+  preferShowDirectory: document.getElementById('preferShowDirectory'),
   showList: document.getElementById('showList'),
   showTemplate: document.getElementById('showTemplate'),
   runWarning: document.getElementById('runWarning'),
@@ -55,6 +56,7 @@ function createShowCard(show = {}) {
   node.querySelector('.field-loadshow').value = show.loadShowName || '';
   node.querySelector('.field-file').value = show.file || '';
   node.querySelector('.field-macro').value = show.macro || '';
+  node.querySelector('.field-macro-number').value = show.macroNumber || '';
 
   node.querySelector('.field-name').addEventListener('input', () => updateCardTitle(node));
   node.querySelector('.delete-button').addEventListener('click', () => {
@@ -77,7 +79,8 @@ function collectShows() {
     name: card.querySelector('.field-name').value.trim(),
     loadShowName: card.querySelector('.field-loadshow').value.trim(),
     file: card.querySelector('.field-file').value.trim(),
-    macro: card.querySelector('.field-macro').value.trim()
+    macro: card.querySelector('.field-macro').value.trim(),
+    macroNumber: card.querySelector('.field-macro-number').value.trim()
   }));
 }
 
@@ -98,6 +101,7 @@ async function loadStatus() {
 async function loadConfig() {
   try {
     const data = await api('/config');
+    els.preferShowDirectory.checked = data.preferShowDirectory === true;
     renderShows(data.shows || []);
     await loadStatus();
   } catch (err) {
@@ -108,7 +112,10 @@ async function loadConfig() {
 
 async function saveConfig() {
   try {
-    const payload = { shows: collectShows() };
+    const payload = {
+      preferShowDirectory: els.preferShowDirectory.checked,
+      shows: collectShows()
+    };
     await api('/save-config', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

@@ -82,6 +82,7 @@ function validateConfig(parsed) {
   parsed.gma2.commandDelayMs = parsed.gma2.commandDelayMs || 350;
   parsed.gma2.closeOnFinish = parsed.gma2.closeOnFinish !== false;
   parsed.gma2.loginAfterLoadShow = parsed.gma2.loginAfterLoadShow === true;
+  parsed.gma2.preferShowDirectory = parsed.gma2.preferShowDirectory === true;
   parsed.gma2.verifyTelnetClosedBeforeReady = parsed.gma2.closeOnFinish && parsed.gma2.verifyTelnetClosedBeforeReady !== false;
   parsed.gma2.rejectIfTelnetAlreadyOpen = parsed.gma2.rejectIfTelnetAlreadyOpen !== false;
   parsed.gma2.forceKillAllMatchingProcessesOnClose = parsed.gma2.forceKillAllMatchingProcessesOnClose !== false;
@@ -117,6 +118,8 @@ function loadConfig() {
 
 function adminConfig() {
   return {
+    showDirectory: config.gma2.showDirectory || '',
+    preferShowDirectory: config.gma2.preferShowDirectory === true,
     shows: config.shows.map(show => ({
       name: show.name,
       file: show.file || '',
@@ -133,6 +136,46 @@ function saveConfig(nextConfig) {
   fs.writeFileSync(CONFIG_PATH, body, 'utf8');
   config = validated;
   return validated;
+}
+
+function listShowFiles() {
+  const showDirectory = String(config.gma2.showDirectory || '').trim();
+  if (!showDirectory) {
+    throw new Error('gma2.showDirectory is not configured');
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(showDirectory, { withFileTypes: true });
+  } catch (err) {
+    throw new Error(`Cannot read showDirectory: ${showDirectory}`);
+  }
+
+  return entries
+    .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.show'))
+    .map(entry => {
+      const file = entry.name;
+      const loadShowName = path.basename(file, '.show');
+      return {
+        name: loadShowName,
+        file,
+        loadShowName,
+        macro: '',
+        macroNumber: '36'
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file, undefined, { sensitivity: 'base' }));
+}
+
+function getAvailableShows() {
+  if (!config.gma2.preferShowDirectory && Array.isArray(config.shows) && config.shows.length > 0) {
+    return config.shows;
+  }
+  const showFiles = listShowFiles();
+  if (showFiles.length > 0) {
+    return showFiles;
+  }
+  return config.shows;
 }
 
 function readRequestBody(req) {
@@ -160,7 +203,8 @@ async function readJsonBody(req) {
   }
 }
 
-function buildConfigWithUpdatedShows(shows) {
+function buildConfigWithUpdatedShows(input) {
+  const shows = input && input.shows;
   if (!Array.isArray(shows)) throw new Error('shows must be an array');
 
   const cleanedShows = shows.map((show, index) => {
@@ -188,6 +232,10 @@ function buildConfigWithUpdatedShows(shows) {
 
   return {
     ...config,
+    gma2: {
+      ...config.gma2,
+      preferShowDirectory: input && input.preferShowDirectory === true
+    },
     shows: cleanedShows
   };
 }
@@ -205,7 +253,7 @@ function publicStatus() {
   return {
     ...status,
     busy: ![STATES.IDLE, STATES.READY, STATES.ERROR].includes(status.state),
-    shows: config.shows.map(s => s.name)
+    shows: getAvailableShows().map(s => s.name)
   };
 }
 
@@ -419,7 +467,7 @@ function buildLoginCommand() {
 
 function findShow(showNameFromUrl) {
   const wanted = decodeURIComponent(showNameFromUrl).trim().toLowerCase();
-  return config.shows.find(show => show.name.toLowerCase() === wanted);
+  return getAvailableShows().find(show => show.name.toLowerCase() === wanted);
 }
 
 function launchGma2() {
@@ -752,7 +800,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/shows') {
-      return sendJson(res, 200, config.shows.map(show => ({ name: show.name })));
+      return sendJson(res, 200, getAvailableShows().map(show => ({ name: show.name })));
+    }
+
+    if (req.method === 'GET' && url.pathname === '/show-files') {
+      return sendJson(res, 200, {
+        showDirectory: config.gma2.showDirectory || '',
+        shows: listShowFiles()
+      });
     }
 
     if (req.method === 'POST' && url.pathname.startsWith('/run/')) {
@@ -782,16 +837,16 @@ const server = http.createServer(async (req, res) => {
       if (currentRun) return sendJson(res, 409, { ok: false, error: 'Cannot reload config while automation is running' });
       config = loadConfig();
       log('info', 'Config reloaded');
-      return sendJson(res, 200, { ok: true, shows: config.shows.map(s => s.name) });
+      return sendJson(res, 200, { ok: true, shows: getAvailableShows().map(s => s.name) });
     }
 
     if (req.method === 'POST' && url.pathname === '/save-config') {
       if (currentRun) return sendJson(res, 409, { ok: false, error: 'Cannot save config while automation is running' });
       const parsed = await readJsonBody(req);
-      const nextConfig = buildConfigWithUpdatedShows(parsed.shows);
+      const nextConfig = buildConfigWithUpdatedShows(parsed);
       saveConfig(nextConfig);
       log('info', 'Config saved from admin UI', { shows: nextConfig.shows.map(show => show.name) });
-      return sendJson(res, 200, { ok: true, shows: nextConfig.shows.map(show => show.name) });
+      return sendJson(res, 200, { ok: true, shows: getAvailableShows().map(show => show.name) });
     }
 
     if (req.method === 'GET' && url.pathname === '/telnet-test') {

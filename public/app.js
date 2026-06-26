@@ -31,6 +31,7 @@ const els = {
   idlePanel: document.getElementById('idlePanel'),
   progressPanel: document.getElementById('progressPanel'),
   showGrid: document.getElementById('showGrid'),
+  showSourceHint: document.getElementById('showSourceHint'),
   reloadButton: document.getElementById('reloadButton'),
   progressTitle: document.getElementById('progressTitle'),
   progressMessage: document.getElementById('progressMessage'),
@@ -111,6 +112,31 @@ function renderShows(shows) {
     button.addEventListener('click', () => showConfirm(name));
     els.showGrid.appendChild(button);
   });
+}
+
+async function loadShowSourceHint() {
+  try {
+    const data = await api('/config');
+    if (data.preferShowDirectory === true && data.showDirectory) {
+      els.showSourceHint.textContent = `Buttons kommen direkt aus dem Show-Ordner: ${data.showDirectory}`;
+      return;
+    }
+
+    const configShows = Array.isArray(data.shows) ? data.shows : [];
+    if (configShows.length > 0) {
+      els.showSourceHint.textContent = 'Buttons kommen aus der Config.';
+      return;
+    }
+
+    if (data.showDirectory) {
+      els.showSourceHint.textContent = `Buttons kommen direkt aus dem Show-Ordner: ${data.showDirectory}`;
+      return;
+    }
+
+    els.showSourceHint.textContent = 'Keine Shows in der Config und kein Show-Ordner hinterlegt.';
+  } catch (err) {
+    els.showSourceHint.textContent = 'Quelle der Shows konnte nicht geladen werden.';
+  }
 }
 
 function updateStepList(state) {
@@ -234,6 +260,7 @@ async function pollStatus() {
 async function reloadConfig() {
   try {
     await api('/reload-config', { method: 'POST' });
+    await loadShowSourceHint();
     await pollStatus();
   } catch (err) {
     renderError(err.message || String(err));
@@ -264,4 +291,5 @@ els.confirmButton.addEventListener('click', resetToIdle);
 els.resetButton.addEventListener('click', resetToIdle);
 
 pollStatus();
+loadShowSourceHint();
 setInterval(pollStatus, 2000);

@@ -29,6 +29,12 @@
       </div>
 
       <div class="admin-note" id="runWarning">Wenn gerade ein Setup läuft, ist Speichern gesperrt.</div>
+
+      <label class="admin-note">
+        <input id="preferShowDirectory" type="checkbox">
+        Show-Ordner bevorzugen: `/ui` zeigt dann direkt alle `.show`-Dateien aus dem hinterlegten Show-Ordner an.
+      </label>
+
       <div class="editor-list" id="showList"></div>
 
       <div class="actions">
@@ -66,6 +72,11 @@
       <label>
         <span>Macro-Name</span>
         <input class="field-macro" type="text" placeholder="VK Einrichtung (Hamlet)">
+      </label>
+
+      <label>
+        <span>Macro-Nummer</span>
+        <input class="field-macro-number" type="text" inputmode="numeric" placeholder="36">
       </label>
     </article>
   </template>

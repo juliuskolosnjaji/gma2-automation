@@ -525,12 +525,29 @@ async function connectTelnetWithOptionalDelay() {
   return telnet;
 }
 
+function isTelnetConnected(telnet) {
+  return Boolean(telnet && telnet.socket && !telnet.socket.destroyed);
+}
+
+async function sendLoginIfConfigured(telnet, reason) {
+  if (!config.gma2.loginCommand) return telnet;
+
+  const login = buildLoginCommand();
+  log('info', 'Sending gMA2 login command', { reason });
+  await telnet.send(login);
+  log('info', 'gMA2 login command finished', { reason });
+  return telnet;
+}
+
 async function reconnectTelnetIfNeeded(telnet, reason) {
-  if (telnet && telnet.socket && !telnet.socket.destroyed) return telnet;
+  if (isTelnetConnected(telnet)) return { telnet, reconnected: false };
 
   log('warn', 'Telnet socket is no longer connected, reconnecting', { reason });
   if (telnet) telnet.close();
-  return connectTelnetWithOptionalDelay();
+  return {
+    telnet: await connectTelnetWithOptionalDelay(),
+    reconnected: true
+  };
 }
 
 async function runAutomation(show, options = {}) {
@@ -567,11 +584,8 @@ async function runAutomation(show, options = {}) {
 
     if (config.gma2.loginCommand) {
       setStatus(STATES.LOGGING_IN, 'Logging in to gMA2 Telnet');
-      const login = buildLoginCommand();
-      telnet = await reconnectTelnetIfNeeded(telnet, 'before login');
-      log('info', 'Sending gMA2 login command');
-      await telnet.send(login);
-      log('info', 'gMA2 login command finished');
+      ({ telnet } = await reconnectTelnetIfNeeded(telnet, 'before login'));
+      await sendLoginIfConfigured(telnet, 'before login');
     }
 
     setStatus(STATES.LOADING_SHOW, `Loading showfile ${show.name}`);
@@ -581,18 +595,21 @@ async function runAutomation(show, options = {}) {
       file: show.file || '',
       name: show.name
     });
-    telnet = await reconnectTelnetIfNeeded(telnet, 'before loadshow');
+    {
+      const reconnectResult = await reconnectTelnetIfNeeded(telnet, 'before loadshow');
+      telnet = reconnectResult.telnet;
+      if (reconnectResult.reconnected) {
+        await sendLoginIfConfigured(telnet, 'after reconnect before loadshow');
+      }
+    }
     log('info', 'Sending LoadShow command', { loadShowName });
     await telnet.send(loadCommand);
     log('info', 'LoadShow command finished', { loadShowName });
     await sleep(show.showLoadWaitMs || config.gma2.showLoadWaitMs);
 
     if (config.gma2.loginAfterLoadShow && config.gma2.loginCommand) {
-      const login = buildLoginCommand();
-      telnet = await reconnectTelnetIfNeeded(telnet, 'after loadshow before second login');
-      log('info', 'Sending second gMA2 login command after LoadShow');
-      await telnet.send(login);
-      log('info', 'Second gMA2 login command finished');
+      ({ telnet } = await reconnectTelnetIfNeeded(telnet, 'after loadshow before second login'));
+      await sendLoginIfConfigured(telnet, 'after loadshow before second login');
     }
 
     const macroValues = resolveMacroValues(show);
@@ -604,7 +621,13 @@ async function runAutomation(show, options = {}) {
       show: loadShowName,
       name: show.name
     });
-    telnet = await reconnectTelnetIfNeeded(telnet, 'before macro');
+    {
+      const reconnectResult = await reconnectTelnetIfNeeded(telnet, 'before macro');
+      telnet = reconnectResult.telnet;
+      if (reconnectResult.reconnected) {
+        await sendLoginIfConfigured(telnet, 'after reconnect before macro');
+      }
+    }
     log('info', 'Sending Macro command', { macro: macroValues.macro, macroNumber: macroValues.macroNumber });
     await telnet.send(macroCommand);
     log('info', 'Macro command finished', { macro: macroValues.macro, macroNumber: macroValues.macroNumber });

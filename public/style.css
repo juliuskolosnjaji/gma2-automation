@@ -331,6 +331,7 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
 
 .dialog-card { padding: 28px; }
 .dialog-card p { margin-top: 12px; color: var(--muted); font-size: 24px; }
+.dialog-note { margin-top: 18px; color: var(--text) !important; font-size: 20px !important; }
 .dialog-actions { display: flex; gap: 14px; margin-top: 28px; }
 .dialog-actions button { flex: 1; }
 

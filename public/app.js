@@ -23,6 +23,7 @@ const stateLabels = {
 };
 
 let selectedShow = null;
+let selectedCloseOnFinish = true;
 let lastKnownShows = [];
 
 const els = {
@@ -39,6 +40,7 @@ const els = {
   confirmDialog: document.getElementById('confirmDialog'),
   confirmTitle: document.getElementById('confirmTitle'),
   confirmText: document.getElementById('confirmText'),
+  startKeepOpenButton: document.getElementById('startKeepOpenButton'),
   startConfirmedButton: document.getElementById('startConfirmedButton'),
   lastUpdate: document.getElementById('lastUpdate')
 };
@@ -74,9 +76,14 @@ function showConfirm(showName) {
 async function runShow(showName) {
   selectedShow = null;
   if (els.confirmDialog.open) els.confirmDialog.close();
-  renderBusyScreen({ state: 'LAUNCHING', show: showName, message: `Starte Setup für ${showName}…` });
+  const closeHint = selectedCloseOnFinish ? 'gMA2 wird danach geschlossen.' : 'gMA2 bleibt danach offen.';
+  renderBusyScreen({ state: 'LAUNCHING', show: showName, message: `Starte Setup für ${showName}… ${closeHint}` });
   try {
-    await api(`/run/${encodeURIComponent(showName)}`, { method: 'POST' });
+    await api(`/run/${encodeURIComponent(showName)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ closeOnFinish: selectedCloseOnFinish })
+    });
     await pollStatus();
   } catch (err) {
     renderError(err.message || String(err));
@@ -243,6 +250,12 @@ async function resetToIdle() {
 }
 
 els.startConfirmedButton.addEventListener('click', () => {
+  selectedCloseOnFinish = true;
+  if (selectedShow) runShow(selectedShow);
+});
+
+els.startKeepOpenButton.addEventListener('click', () => {
+  selectedCloseOnFinish = false;
   if (selectedShow) runShow(selectedShow);
 });
 

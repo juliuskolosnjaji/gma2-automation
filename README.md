@@ -69,6 +69,18 @@ Edit `config.json`:
 
 `loadShowName` should normally be the gMA2 show name without `.show`, because the grandMA2 command line syntax uses show names such as `LoadShow "Macbeth"`.
 
+For macro by number, use `macroNumber` instead of `macro`, for example:
+
+```json
+{
+  "name": "Awakening",
+  "loadShowName": "awakening",
+  "macroNumber": 36
+}
+```
+
+The touchscreen start dialog now asks whether gMA2 onPC should be closed after the macro or remain open for this single run.
+
 
 ### Handoff safety: gMA2 must be gone before grandMA3 starts
 

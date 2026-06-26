@@ -53,9 +53,11 @@
       <form method="dialog" class="dialog-card">
         <h2 id="confirmTitle">Show starten?</h2>
         <p id="confirmText">Soll das Node-Setup gestartet werden?</p>
+        <p class="dialog-note">Soll gMA2 onPC nach dem Macro automatisch geschlossen werden?</p>
         <div class="dialog-actions">
           <button class="secondary" value="cancel" type="submit">Abbrechen</button>
-          <button class="primary" id="startConfirmedButton" value="default" type="button">Setup starten</button>
+          <button class="secondary" id="startKeepOpenButton" value="default" type="button">Offen lassen</button>
+          <button class="primary" id="startConfirmedButton" value="default" type="button">Mit Schließen starten</button>
         </div>
       </form>
     </dialog>

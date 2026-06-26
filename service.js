@@ -80,7 +80,8 @@ function validateConfig(parsed) {
   parsed.gma2.postPortOpenWaitMs = parsed.gma2.postPortOpenWaitMs || 0;
   parsed.gma2.postConnectWaitMs = parsed.gma2.postConnectWaitMs || 0;
   parsed.gma2.commandDelayMs = parsed.gma2.commandDelayMs || 350;
-  parsed.gma2.verifyTelnetClosedBeforeReady = parsed.gma2.verifyTelnetClosedBeforeReady !== false;
+  parsed.gma2.closeOnFinish = parsed.gma2.closeOnFinish !== false;
+  parsed.gma2.verifyTelnetClosedBeforeReady = parsed.gma2.closeOnFinish && parsed.gma2.verifyTelnetClosedBeforeReady !== false;
   parsed.gma2.rejectIfTelnetAlreadyOpen = parsed.gma2.rejectIfTelnetAlreadyOpen !== false;
   parsed.gma2.forceKillAllMatchingProcessesOnClose = parsed.gma2.forceKillAllMatchingProcessesOnClose !== false;
   parsed.gma2.loginCommand = parsed.gma2.loginCommand ?? 'Login "{user}" "{password}"';
@@ -88,8 +89,8 @@ function validateConfig(parsed) {
   parsed.gma2.macroCommand = parsed.gma2.macroCommand ?? 'Macro "{macro}"';
 
   for (const show of parsed.shows) {
-    if (!show.name || !show.macro) {
-      throw new Error('Every show needs at least name and macro');
+    if (!show.name || (!show.macro && show.macroNumber == null)) {
+      throw new Error('Every show needs at least name and macro or macroNumber');
     }
     if (!show.loadShowName && !show.file) {
       throw new Error(`Show "${show.name}" needs file or loadShowName`);
@@ -119,7 +120,8 @@ function adminConfig() {
       name: show.name,
       file: show.file || '',
       loadShowName: show.loadShowName || '',
-      macro: show.macro
+      macro: show.macro || '',
+      macroNumber: show.macroNumber ?? ''
     }))
   };
 }
@@ -165,14 +167,19 @@ function buildConfigWithUpdatedShows(shows) {
     const file = String(show.file || '').trim();
     const loadShowName = String(show.loadShowName || '').trim();
     const macro = String(show.macro || '').trim();
+    const macroNumber = show.macroNumber == null || show.macroNumber === ''
+      ? null
+      : String(show.macroNumber).trim();
 
     if (!name) throw new Error(`Show ${index + 1}: name is required`);
-    if (!macro) throw new Error(`Show "${name}": macro is required`);
+    if (!macro && !macroNumber) throw new Error(`Show "${name}": macro or macroNumber is required`);
     if (!loadShowName && !file) {
       throw new Error(`Show "${name}": loadShowName or file is required`);
     }
 
-    const cleaned = { name, macro };
+    const cleaned = { name };
+    if (macro) cleaned.macro = macro;
+    if (macroNumber) cleaned.macroNumber = macroNumber;
     if (file) cleaned.file = file;
     if (loadShowName) cleaned.loadShowName = loadShowName;
     return cleaned;
@@ -392,6 +399,16 @@ function resolveLoadShowName(show) {
   return show.name;
 }
 
+function resolveMacroValues(show) {
+  const macro = show.macro ? String(show.macro).trim() : '';
+  const macroNumber = show.macroNumber == null ? '' : String(show.macroNumber).trim();
+  return {
+    macro,
+    macroNumber,
+    macroRef: macroNumber || macro
+  };
+}
+
 function findShow(showNameFromUrl) {
   const wanted = decodeURIComponent(showNameFromUrl).trim().toLowerCase();
   return config.shows.find(show => show.name.toLowerCase() === wanted);
@@ -508,10 +525,12 @@ async function reconnectTelnetIfNeeded(telnet, reason) {
   return connectTelnetWithOptionalDelay();
 }
 
-async function runAutomation(show) {
+async function runAutomation(show, options = {}) {
   if (currentRun) {
     throw new Error('Automation already running');
   }
+
+  const closeOnFinish = options.closeOnFinish ?? config.gma2.closeOnFinish;
 
   currentRun = { show: show.name, startedAt: new Date().toISOString() };
   status.startedAt = currentRun.startedAt;
@@ -563,23 +582,29 @@ async function runAutomation(show) {
     log('info', 'LoadShow command finished', { loadShowName });
     await sleep(show.showLoadWaitMs || config.gma2.showLoadWaitMs);
 
+    const macroValues = resolveMacroValues(show);
     setStatus(STATES.RUNNING_MACRO, `Running macro for ${show.name}`);
     const macroCommand = renderTemplate(config.gma2.macroCommand, {
-      macro: show.macro,
+      macro: macroValues.macro,
+      macroNumber: macroValues.macroNumber,
+      macroRef: macroValues.macroRef,
       show: loadShowName,
       name: show.name
     });
     telnet = await reconnectTelnetIfNeeded(telnet, 'before macro');
-    log('info', 'Sending Macro command', { macro: show.macro });
+    log('info', 'Sending Macro command', { macro: macroValues.macro, macroNumber: macroValues.macroNumber });
     await telnet.send(macroCommand);
-    log('info', 'Macro command finished', { macro: show.macro });
+    log('info', 'Macro command finished', { macro: macroValues.macro, macroNumber: macroValues.macroNumber });
     await sleep(show.macroWaitMs || config.gma2.macroWaitMs);
 
-    setStatus(STATES.CLOSING, 'Closing gMA2 onPC and releasing MA-Net');
     telnet.close();
-    await closeAndVerifyGma2();
-
-    setStatus(STATES.READY, 'Ready — gMA2 is closed, start grandMA3', { lastError: null });
+    if (closeOnFinish) {
+      setStatus(STATES.CLOSING, 'Closing gMA2 onPC and releasing MA-Net');
+      await closeAndVerifyGma2();
+      setStatus(STATES.READY, 'Ready — gMA2 is closed, start grandMA3', { lastError: null });
+    } else {
+      setStatus(STATES.READY, 'Ready — macro finished, gMA2 remains open', { lastError: null });
+    }
 
     if (config.service.autoReturnToIdleMs > 0) {
       readyIdleTimer = setTimeout(() => {
@@ -701,7 +726,12 @@ const server = http.createServer(async (req, res) => {
       const show = findShow(showName);
       if (!show) return sendJson(res, 404, { ok: false, error: `Unknown show: ${decodeURIComponent(showName)}` });
 
-      runAutomation(show).catch(err => log('error', 'Uncaught automation error', { error: err.stack || String(err) }));
+      const parsed = await readJsonBody(req).catch(() => ({}));
+      const options = {
+        closeOnFinish: typeof parsed.closeOnFinish === 'boolean' ? parsed.closeOnFinish : undefined
+      };
+
+      runAutomation(show, options).catch(err => log('error', 'Uncaught automation error', { error: err.stack || String(err) }));
       return sendJson(res, 202, { ok: true, status: publicStatus() });
     }
 

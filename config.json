@@ -10,6 +10,7 @@
     "showLoadWaitMs": 12000,
     "macroWaitMs": 5000,
     "shutdownWaitMs": 3000,
+    "postPortOpenWaitMs": 0,
     "postConnectWaitMs": 0,
     "commandDelayMs": 350,
     "loginCommand": "Login \"{user}\" \"{password}\"",

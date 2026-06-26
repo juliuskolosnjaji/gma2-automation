@@ -46,6 +46,7 @@ Edit `config.json`:
     "startupTimeoutMs": 30000,
     "showLoadWaitMs": 12000,
     "macroWaitMs": 5000,
+    "postPortOpenWaitMs": 0,
     "postConnectWaitMs": 0,
     "loginCommand": "Login \"{user}\" \"{password}\"",
     "loadShowCommand": "LoadShow \"{show}\" /nosave /noconfirm",
@@ -93,12 +94,14 @@ What these options do:
 - `forceKillAllMatchingProcessesOnClose`: also kills matching `grandMA2 onPC.exe` processes, not only the process ID started by this service.
 - `verifyTelnetClosedBeforeReady`: checks that port `30000` is closed before showing `READY`.
 - `postShutdownNetworkQuietMs`: extra delay after shutdown before telling the operator to start grandMA3.
+- `postPortOpenWaitMs`: waits after port `30000` becomes reachable before the first real Telnet connect attempt.
 - `postConnectWaitMs`: waits after Telnet connect before sending `Login`. Useful if gMA2 opens port `30000` before it is fully ready.
 
 If the log shows that the Telnet socket connects but drops during `Login` or `LoadShow`, try these timing values first:
 
 ```json
 {
+  "postPortOpenWaitMs": 5000,
   "postConnectWaitMs": 3000,
   "commandDelayMs": 1500
 }

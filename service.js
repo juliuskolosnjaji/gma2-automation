@@ -77,6 +77,7 @@ function validateConfig(parsed) {
   parsed.gma2.shutdownWaitMs = parsed.gma2.shutdownWaitMs || 3000;
   parsed.gma2.shutdownVerifyTimeoutMs = parsed.gma2.shutdownVerifyTimeoutMs || 12000;
   parsed.gma2.postShutdownNetworkQuietMs = parsed.gma2.postShutdownNetworkQuietMs || 2000;
+  parsed.gma2.postPortOpenWaitMs = parsed.gma2.postPortOpenWaitMs || 0;
   parsed.gma2.postConnectWaitMs = parsed.gma2.postConnectWaitMs || 0;
   parsed.gma2.commandDelayMs = parsed.gma2.commandDelayMs || 350;
   parsed.gma2.verifyTelnetClosedBeforeReady = parsed.gma2.verifyTelnetClosedBeforeReady !== false;
@@ -478,6 +479,35 @@ function mergeFailureMessages(primaryErr, shutdownErr) {
   return `${primary} Shutdown verification also failed: ${shutdown}`;
 }
 
+async function connectTelnetWithOptionalDelay() {
+  if (config.gma2.postPortOpenWaitMs > 0) {
+    log('info', 'Waiting after Telnet port becomes reachable before connect', {
+      ms: config.gma2.postPortOpenWaitMs
+    });
+    await sleep(config.gma2.postPortOpenWaitMs);
+  }
+
+  const telnet = new TelnetClient(config.gma2.telnetHost, config.gma2.telnetPort, config.gma2.commandDelayMs);
+  await telnet.connect();
+
+  if (config.gma2.postConnectWaitMs > 0) {
+    log('info', 'Waiting after Telnet connect before first command', {
+      ms: config.gma2.postConnectWaitMs
+    });
+    await sleep(config.gma2.postConnectWaitMs);
+  }
+
+  return telnet;
+}
+
+async function reconnectTelnetIfNeeded(telnet, reason) {
+  if (telnet && telnet.socket && !telnet.socket.destroyed) return telnet;
+
+  log('warn', 'Telnet socket is no longer connected, reconnecting', { reason });
+  if (telnet) telnet.close();
+  return connectTelnetWithOptionalDelay();
+}
+
 async function runAutomation(show) {
   if (currentRun) {
     throw new Error('Automation already running');
@@ -506,15 +536,7 @@ async function runAutomation(show) {
     setStatus(STATES.WAITING_FOR_TELNET, 'Waiting for gMA2 Telnet to become reachable');
     await waitForTcp(config.gma2.telnetHost, config.gma2.telnetPort, config.gma2.startupTimeoutMs);
 
-    telnet = new TelnetClient(config.gma2.telnetHost, config.gma2.telnetPort, config.gma2.commandDelayMs);
-    await telnet.connect();
-
-    if (config.gma2.postConnectWaitMs > 0) {
-      log('info', 'Waiting after Telnet connect before first command', {
-        ms: config.gma2.postConnectWaitMs
-      });
-      await sleep(config.gma2.postConnectWaitMs);
-    }
+    telnet = await connectTelnetWithOptionalDelay();
 
     if (config.gma2.loginCommand) {
       setStatus(STATES.LOGGING_IN, 'Logging in to gMA2 Telnet');
@@ -522,6 +544,7 @@ async function runAutomation(show) {
         user: config.gma2.telnetUser || '',
         password: config.gma2.telnetPassword || ''
       });
+      telnet = await reconnectTelnetIfNeeded(telnet, 'before login');
       log('info', 'Sending gMA2 login command');
       await telnet.send(login);
       log('info', 'gMA2 login command finished');
@@ -534,6 +557,7 @@ async function runAutomation(show) {
       file: show.file || '',
       name: show.name
     });
+    telnet = await reconnectTelnetIfNeeded(telnet, 'before loadshow');
     log('info', 'Sending LoadShow command', { loadShowName });
     await telnet.send(loadCommand);
     log('info', 'LoadShow command finished', { loadShowName });
@@ -545,6 +569,7 @@ async function runAutomation(show) {
       show: loadShowName,
       name: show.name
     });
+    telnet = await reconnectTelnetIfNeeded(telnet, 'before macro');
     log('info', 'Sending Macro command', { macro: show.macro });
     await telnet.send(macroCommand);
     log('info', 'Macro command finished', { macro: show.macro });

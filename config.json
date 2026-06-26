@@ -13,6 +13,7 @@
     "postPortOpenWaitMs": 0,
     "postConnectWaitMs": 0,
     "commandDelayMs": 350,
+    "loginAfterLoadShow": false,
     "loginCommand": "Login \"{user}\" \"{password}\"",
     "loadShowCommand": "LoadShow \"{show}\" /nosave /noconfirm",
     "macroCommand": "Macro \"{macro}\"",

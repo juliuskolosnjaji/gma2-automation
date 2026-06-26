@@ -81,6 +81,7 @@ function validateConfig(parsed) {
   parsed.gma2.postConnectWaitMs = parsed.gma2.postConnectWaitMs || 0;
   parsed.gma2.commandDelayMs = parsed.gma2.commandDelayMs || 350;
   parsed.gma2.closeOnFinish = parsed.gma2.closeOnFinish !== false;
+  parsed.gma2.loginAfterLoadShow = parsed.gma2.loginAfterLoadShow === true;
   parsed.gma2.verifyTelnetClosedBeforeReady = parsed.gma2.closeOnFinish && parsed.gma2.verifyTelnetClosedBeforeReady !== false;
   parsed.gma2.rejectIfTelnetAlreadyOpen = parsed.gma2.rejectIfTelnetAlreadyOpen !== false;
   parsed.gma2.forceKillAllMatchingProcessesOnClose = parsed.gma2.forceKillAllMatchingProcessesOnClose !== false;
@@ -409,6 +410,13 @@ function resolveMacroValues(show) {
   };
 }
 
+function buildLoginCommand() {
+  return renderTemplate(config.gma2.loginCommand, {
+    user: config.gma2.telnetUser || '',
+    password: config.gma2.telnetPassword || ''
+  });
+}
+
 function findShow(showNameFromUrl) {
   const wanted = decodeURIComponent(showNameFromUrl).trim().toLowerCase();
   return config.shows.find(show => show.name.toLowerCase() === wanted);
@@ -559,10 +567,7 @@ async function runAutomation(show, options = {}) {
 
     if (config.gma2.loginCommand) {
       setStatus(STATES.LOGGING_IN, 'Logging in to gMA2 Telnet');
-      const login = renderTemplate(config.gma2.loginCommand, {
-        user: config.gma2.telnetUser || '',
-        password: config.gma2.telnetPassword || ''
-      });
+      const login = buildLoginCommand();
       telnet = await reconnectTelnetIfNeeded(telnet, 'before login');
       log('info', 'Sending gMA2 login command');
       await telnet.send(login);
@@ -581,6 +586,14 @@ async function runAutomation(show, options = {}) {
     await telnet.send(loadCommand);
     log('info', 'LoadShow command finished', { loadShowName });
     await sleep(show.showLoadWaitMs || config.gma2.showLoadWaitMs);
+
+    if (config.gma2.loginAfterLoadShow && config.gma2.loginCommand) {
+      const login = buildLoginCommand();
+      telnet = await reconnectTelnetIfNeeded(telnet, 'after loadshow before second login');
+      log('info', 'Sending second gMA2 login command after LoadShow');
+      await telnet.send(login);
+      log('info', 'Second gMA2 login command finished');
+    }
 
     const macroValues = resolveMacroValues(show);
     setStatus(STATES.RUNNING_MACRO, `Running macro for ${show.name}`);

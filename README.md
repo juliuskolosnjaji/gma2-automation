@@ -48,6 +48,7 @@ Edit `config.json`:
     "macroWaitMs": 5000,
     "postPortOpenWaitMs": 0,
     "postConnectWaitMs": 0,
+    "loginAfterLoadShow": false,
     "loginCommand": "Login \"{user}\" \"{password}\"",
     "loadShowCommand": "LoadShow \"{show}\" /nosave /noconfirm",
     "macroCommand": "Macro \"{macro}\""
@@ -108,6 +109,7 @@ What these options do:
 - `postShutdownNetworkQuietMs`: extra delay after shutdown before telling the operator to start grandMA3.
 - `postPortOpenWaitMs`: waits after port `30000` becomes reachable before the first real Telnet connect attempt.
 - `postConnectWaitMs`: waits after Telnet connect before sending `Login`. Useful if gMA2 opens port `30000` before it is fully ready.
+- `loginAfterLoadShow`: sends the same Telnet `Login` command again after `LoadShow`. Useful when the loaded show drops back to guest or resets permissions before the macro step.
 
 If the log shows that the Telnet socket connects but drops during `Login` or `LoadShow`, try these timing values first:
 

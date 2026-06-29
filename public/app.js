@@ -22,9 +22,20 @@ const stateLabels = {
   ERROR: 'Fehler'
 };
 
+const stateMessages = {
+  LAUNCHING: 'onPC startet',
+  WAITING_FOR_TELNET: 'Verbindung',
+  LOGGING_IN: 'Login',
+  LOADING_SHOW: 'Show laden',
+  RUNNING_MACRO: 'Macro starten',
+  CLOSING: 'onPC schließen',
+  READY: 'Fertig'
+};
+
 let selectedShow = null;
 let selectedCloseOnFinish = true;
 let lastKnownShows = [];
+let currentConfig = null;
 
 const els = {
   connectionStatus: document.getElementById('connectionStatus'),
@@ -33,6 +44,11 @@ const els = {
   showGrid: document.getElementById('showGrid'),
   showSourceHint: document.getElementById('showSourceHint'),
   reloadButton: document.getElementById('reloadButton'),
+  pathSettingsButton: document.getElementById('pathSettingsButton'),
+  pathSettingsForm: document.getElementById('pathSettingsForm'),
+  executableInput: document.getElementById('executableInput'),
+  showDirectoryInput: document.getElementById('showDirectoryInput'),
+  cancelPathButton: document.getElementById('cancelPathButton'),
   progressTitle: document.getElementById('progressTitle'),
   progressMessage: document.getElementById('progressMessage'),
   eventLog: document.getElementById('eventLog'),
@@ -43,7 +59,9 @@ const els = {
   confirmText: document.getElementById('confirmText'),
   startKeepOpenButton: document.getElementById('startKeepOpenButton'),
   startConfirmedButton: document.getElementById('startConfirmedButton'),
-  lastUpdate: document.getElementById('lastUpdate')
+  lastUpdate: document.getElementById('lastUpdate'),
+  executableExplorerBtn: document.getElementById('executableExplorerBtn'),
+  showDirectoryExplorerBtn: document.getElementById('showDirectoryExplorerBtn')
 };
 
 async function api(path, options = {}) {
@@ -66,7 +84,7 @@ async function api(path, options = {}) {
 function showConfirm(showName) {
   selectedShow = showName;
   els.confirmTitle.textContent = `${showName} starten?`;
-  els.confirmText.textContent = `gMA2 onPC wird gestartet, das Showfile geladen, das Macro ausgeführt, danach geschlossen und erst nach Prüfung für grandMA3 freigegeben.`;
+  els.confirmText.textContent = `Macro ${currentConfig && currentConfig.macroNumber ? currentConfig.macroNumber : '36'}`;
   if (typeof els.confirmDialog.showModal === 'function') {
     els.confirmDialog.showModal();
   } else if (window.confirm(`${showName} starten?`)) {
@@ -77,8 +95,7 @@ function showConfirm(showName) {
 async function runShow(showName) {
   selectedShow = null;
   if (els.confirmDialog.open) els.confirmDialog.close();
-  const closeHint = selectedCloseOnFinish ? 'gMA2 wird danach geschlossen.' : 'gMA2 bleibt danach offen.';
-  renderBusyScreen({ state: 'LAUNCHING', show: showName, message: `Starte Setup für ${showName}… ${closeHint}` });
+  renderBusyScreen({ state: 'LAUNCHING', show: showName, message: stateMessages.LAUNCHING });
   try {
     await api(`/run/${encodeURIComponent(showName)}`, {
       method: 'POST',
@@ -98,7 +115,7 @@ function renderShows(shows) {
   if (!shows.length) {
     const empty = document.createElement('p');
     empty.className = 'large-message';
-    empty.textContent = 'Keine Shows in config.json gefunden.';
+    empty.textContent = 'Keine Shows gefunden.';
     els.showGrid.appendChild(empty);
     return;
   }
@@ -117,25 +134,54 @@ function renderShows(shows) {
 async function loadShowSourceHint() {
   try {
     const data = await api('/config');
-    if (data.preferShowDirectory === true && data.showDirectory) {
-      els.showSourceHint.textContent = `Buttons kommen direkt aus dem Show-Ordner: ${data.showDirectory}`;
-      return;
-    }
-
-    const configShows = Array.isArray(data.shows) ? data.shows : [];
-    if (configShows.length > 0) {
-      els.showSourceHint.textContent = 'Buttons kommen aus der Config.';
-      return;
-    }
-
+    currentConfig = data;
+    els.executableInput.value = data.executable || '';
+    els.showDirectoryInput.value = data.showDirectory || '';
     if (data.showDirectory) {
-      els.showSourceHint.textContent = `Buttons kommen direkt aus dem Show-Ordner: ${data.showDirectory}`;
+      els.showSourceHint.textContent = `Macro ${data.macroNumber || '36'}`;
       return;
     }
 
-    els.showSourceHint.textContent = 'Keine Shows in der Config und kein Show-Ordner hinterlegt.';
+    els.showSourceHint.textContent = 'Setup fehlt.';
   } catch (err) {
-    els.showSourceHint.textContent = 'Quelle der Shows konnte nicht geladen werden.';
+    els.showSourceHint.textContent = 'Offline.';
+  }
+}
+
+function showPathSettings() {
+  els.pathSettingsForm.classList.remove('hidden');
+  els.executableInput.focus();
+  els.executableInput.select();
+}
+
+function hidePathSettings() {
+  els.pathSettingsForm.classList.add('hidden');
+  if (currentConfig) {
+    els.executableInput.value = currentConfig.executable || '';
+    els.showDirectoryInput.value = currentConfig.showDirectory || '';
+  }
+}
+
+async function saveShowDirectory(event) {
+  event.preventDefault();
+
+  try {
+    const nextExecutable = els.executableInput.value.trim();
+    const nextShowDirectory = els.showDirectoryInput.value.trim();
+    await api('/save-config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        executable: nextExecutable,
+        showDirectory: nextShowDirectory,
+        macroNumber: currentConfig && currentConfig.macroNumber ? currentConfig.macroNumber : '36'
+      })
+    });
+    await loadShowSourceHint();
+    await pollStatus();
+    els.pathSettingsForm.classList.add('hidden');
+  } catch (err) {
+    renderError(err.message || String(err));
   }
 }
 
@@ -207,16 +253,15 @@ function renderBusyScreen(status) {
   els.confirmButton.classList.add('hidden');
   els.resetButton.classList.add('hidden');
 
-  const showText = status.show ? ` — ${status.show}` : '';
-  els.progressTitle.textContent = status.state === 'READY' ? `Fertig${showText}` : `Setup läuft${showText}`;
-  els.progressMessage.textContent = status.message || 'Bitte warten.';
+  els.progressTitle.textContent = status.show || 'Setup';
+  els.progressMessage.textContent = stateMessages[status.state] || status.message || 'Bitte warten';
   setConnection(status.state === 'READY' ? 'ok' : 'busy', stateLabels[status.state] || status.state);
   updateStepList(status.state);
   renderEventLog(status);
 
   if (status.state === 'READY') {
     els.confirmButton.classList.remove('hidden');
-    els.progressMessage.textContent = 'Fertig — gMA2 onPC ist geschlossen und greift nicht mehr auf die Nodes zu. Jetzt grandMA3 starten. Danach unten bestätigen.';
+    els.progressMessage.textContent = 'grandMA3 starten';
   }
 }
 
@@ -276,6 +321,61 @@ async function resetToIdle() {
   }
 }
 
+// File explorer functions
+async function selectExecutable() {
+  try {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.exe';
+    
+    return new Promise((resolve) => {
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          // Get the directory path from the file path
+          const fullPath = file.path || file.name;
+          const path = fullPath.includes('\\') ? fullPath : file.name;
+          resolve(path);
+        } else {
+          resolve(null);
+        }
+      };
+      input.click();
+    });
+  } catch (err) {
+    console.error('File selection error:', err);
+    return null;
+  }
+}
+
+async function selectDirectory() {
+  try {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    
+    return new Promise((resolve) => {
+      input.onchange = (e) => {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+          // Get the directory path from the first file
+          const firstFile = files[0];
+          const fullPath = firstFile.webkitRelativePath || firstFile.name;
+          const directoryPath = fullPath.split('/')[0];
+          resolve(directoryPath);
+        } else {
+          resolve(null);
+        }
+      };
+      input.click();
+    });
+  } catch (err) {
+    console.error('Directory selection error:', err);
+    return null;
+  }
+}
+
 els.startConfirmedButton.addEventListener('click', () => {
   selectedCloseOnFinish = true;
   if (selectedShow) runShow(selectedShow);
@@ -287,9 +387,50 @@ els.startKeepOpenButton.addEventListener('click', () => {
 });
 
 els.reloadButton.addEventListener('click', reloadConfig);
+els.pathSettingsButton.addEventListener('click', showPathSettings);
+els.pathSettingsForm.addEventListener('submit', saveShowDirectory);
+els.cancelPathButton.addEventListener('click', hidePathSettings);
 els.confirmButton.addEventListener('click', resetToIdle);
 els.resetButton.addEventListener('click', resetToIdle);
+
+// File explorer event listeners
+els.executableExplorerBtn.addEventListener('click', async () => {
+  const selectedPath = await selectExecutable();
+  if (selectedPath) {
+    els.executableInput.value = selectedPath;
+  }
+});
+
+els.showDirectoryExplorerBtn.addEventListener('click', async () => {
+  const selectedPath = await selectDirectory();
+  if (selectedPath) {
+    els.showDirectoryInput.value = selectedPath;
+  }
+});
 
 pollStatus();
 loadShowSourceHint();
 setInterval(pollStatus, 2000);
+
+// Dark mode functionality
+const darkModeToggle = document.getElementById('darkModeToggle');
+const body = document.body;
+
+// Check for saved theme preference or default to light mode
+const currentTheme = localStorage.getItem('theme') || 'light';
+if (currentTheme === 'dark') {
+  body.classList.add('dark-mode');
+  darkModeToggle.querySelector('.dark-mode-icon').textContent = '☀️';
+}
+
+// Toggle dark mode
+darkModeToggle.addEventListener('click', () => {
+  body.classList.toggle('dark-mode');
+  const isDarkMode = body.classList.contains('dark-mode');
+  
+  // Update icon
+  darkModeToggle.querySelector('.dark-mode-icon').textContent = isDarkMode ? '☀️' : '🌙';
+  
+  // Save preference to localStorage
+  localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+});

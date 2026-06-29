@@ -4,63 +4,97 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>gMA2 Node Setup</title>
-  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/style.css?v=20260629-2">
 </head>
-<body>
+<body class="touch-ui">
   <main class="app">
     <header class="topbar">
       <div>
-        <div class="eyebrow">grandMA2 onPC Automation</div>
-        <h1>Show Setup</h1>
+        <div class="eyebrow">grandMA2</div>
+        <h1>Node Setup</h1>
       </div>
-      <div class="status-pill" id="connectionStatus">Verbinde…</div>
+      <div class="topbar-actions">
+        <button class="dark-mode-toggle" id="darkModeToggle" type="button" aria-label="Toggle dark mode">
+          <span class="dark-mode-icon">🌙</span>
+        </button>
+        <div class="status-pill" id="connectionStatus">Verbinde…</div>
+      </div>
     </header>
 
     <section class="panel" id="idlePanel">
       <div class="panel-head">
         <div>
-          <h2>Show auswählen</h2>
-          <p class="panel-copy" id="showSourceHint">Buttons kommen aus der Config.</p>
+          <h2>Show</h2>
+          <p class="panel-copy" id="showSourceHint">Bereit.</p>
         </div>
-        <button class="secondary" id="reloadButton" type="button">Config neu laden</button>
+        <div class="toolbar">
+          <button class="secondary" id="reloadButton" type="button">Reload</button>
+          <button class="secondary" id="pathSettingsButton" type="button">Setup</button>
+        </div>
       </div>
+
+      <form class="touch-settings hidden" id="pathSettingsForm">
+        <label>
+          <span>onPC</span>
+          <div class="input-group">
+            <input id="executableInput" type="text" autocomplete="off" spellcheck="false">
+            <button type="button" class="file-explorer-btn" id="executableExplorerBtn" title="Durchsuchen...">
+              📁
+            </button>
+          </div>
+        </label>
+        <label>
+          <span>Shows</span>
+          <div class="input-group">
+            <input id="showDirectoryInput" type="text" autocomplete="off" spellcheck="false">
+            <button type="button" class="file-explorer-btn" id="showDirectoryExplorerBtn" title="Durchsuchen...">
+              📁
+            </button>
+          </div>
+        </label>
+        <div class="touch-settings-actions">
+          <button class="secondary" id="cancelPathButton" type="button">Abbrechen</button>
+          <button class="primary" id="savePathButton" type="submit">Speichern</button>
+        </div>
+      </form>
+
       <div class="show-grid" id="showGrid"></div>
     </section>
 
     <section class="panel hidden" id="progressPanel">
-      <h2 id="progressTitle">Setup läuft…</h2>
-      <p class="large-message" id="progressMessage">Bitte warten.</p>
+      <p class="progress-kicker" id="progressMessage">Bitte warten.</p>
+      <h2 id="progressTitle">Setup läuft</h2>
 
       <ol class="steps" id="steps">
-        <li data-state="LAUNCHING">gMA2 onPC starten</li>
-        <li data-state="WAITING_FOR_TELNET">Auf Telnet warten</li>
-        <li data-state="LOGGING_IN">In gMA2 einloggen</li>
-        <li data-state="LOADING_SHOW">Showfile laden</li>
-        <li data-state="RUNNING_MACRO">Node-Macro ausführen</li>
-        <li data-state="CLOSING">gMA2 onPC schließen + prüfen</li>
-        <li data-state="READY">gMA2 frei / grandMA3 starten</li>
+        <li data-state="LAUNCHING">Start</li>
+        <li data-state="WAITING_FOR_TELNET">Telnet</li>
+        <li data-state="LOGGING_IN">Login</li>
+        <li data-state="LOADING_SHOW">Show</li>
+        <li data-state="RUNNING_MACRO">Macro</li>
+        <li data-state="CLOSING">Close</li>
+        <li data-state="READY">Ready</li>
       </ol>
 
-      <section class="event-log">
-        <h3>Ablauf</h3>
+      <details class="event-log">
+        <summary>Log</summary>
         <div class="event-log-list" id="eventLog"></div>
-      </section>
+      </details>
 
       <div class="actions">
-        <button class="primary hidden" id="confirmButton" type="button">grandMA3 gestartet / zurück zur Auswahl</button>
-        <button class="danger hidden" id="resetButton" type="button">Fehler quittieren</button>
+        <button class="primary hidden" id="confirmButton" type="button">Zur Auswahl</button>
+        <button class="danger hidden" id="resetButton" type="button">Quittieren</button>
       </div>
     </section>
 
     <dialog id="confirmDialog">
       <form method="dialog" class="dialog-card">
         <h2 id="confirmTitle">Show starten?</h2>
-        <p id="confirmText">Soll das Node-Setup gestartet werden?</p>
-        <p class="dialog-note">Soll gMA2 onPC nach dem Macro automatisch geschlossen werden?</p>
+        <p id="confirmText">Setup starten?</p>
+        <p class="dialog-note">onPC danach schließen?</p>
         <div class="dialog-actions">
           <button class="secondary" value="cancel" type="submit">Abbrechen</button>
           <button class="secondary" id="startKeepOpenButton" value="default" type="button">Offen lassen</button>
-          <button class="primary" id="startConfirmedButton" value="default" type="button">Mit Schließen starten</button>
+          <button class="primary" id="startConfirmedButton" value="default" type="button">Starten</button>
         </div>
       </form>
     </dialog>
